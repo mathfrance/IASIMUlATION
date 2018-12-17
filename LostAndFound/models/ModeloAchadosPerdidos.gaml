@@ -29,6 +29,7 @@ species pessoa {
 	bool percebeuPerda <- false;
 	bool itemAlheio <- false ;
 	bool ladrao <- false;
+	bool foiEmbora <- false;
 	int ciclos <- 0;		
 	metro meuEspaco <- one_of (metro) ;
 	list<item> reachable_item update: item inside (meuEspaco);//cria uma lista com os item proximos de pessoas;
@@ -45,8 +46,8 @@ species pessoa {
 		ciclos <- ciclos + 1;
 		//Se pessoa não possui o item e ainda não percebeu perda
 		if not(possuiItem) and not(percebeuPerda){
-		//5% de chance de perceber
-			percebeuPerda <- flip (0.05);
+		//1% de chance de perceber
+			percebeuPerda <- flip (0.01);
 			if percebeuPerda {
 				nb_pessoas_que_perceberam_que_perderam <- nb_pessoas_que_perceberam_que_perderam + 1;
 			}		
@@ -73,10 +74,13 @@ species pessoa {
 	reflex procuraAjuda when: percebeuPerda{
 		//Vai até uma estação de comunicação
 	}
-	//Após 500 ciclos a pessoa vai embora
-	reflex irEmbora when: ciclos > 500{
-		nb_pessoa_init <- nb_pessoa_init - 1;
-		do die;			
+	//Após 100 ciclos mínimos a pessoa pode ir embora
+	reflex irEmbora when: ciclos > 100{
+		foiEmbora <- flip (0.003);
+		if foiEmbora{
+			nb_pessoa_init <- nb_pessoa_init - 1;
+			do die;	
+		}			
 	}
 	reflex pegarItem when: !empty(reachable_item){// verifica se tem o item na msm localização q ele;
 		if (perdeItem = false){//verifica se ele acabou de perder o item 
@@ -143,6 +147,15 @@ species departamento{
 //Ambiente do metrô criado
 grid metro width: 50 height: 50 neighbors: 4 {
       list<metro> vizinhos  <- (self neighbors_at 2);
+      bool novoUsuario <- false;
+      
+      reflex recebePessoas{
+      	novoUsuario <- flip (0.00005);
+      	if novoUsuario {
+      		create pessoa;
+      		nb_pessoa_init <- nb_pessoa_init + 1;
+      	}
+      }
    }
 
 experiment AchadosPerdidos type: gui {
