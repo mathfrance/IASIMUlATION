@@ -116,11 +116,11 @@ species pessoa skills: [moving]{
 
 	reflex pegarItem when: !empty(reachable_item){// verifica se tem o item na msm localização q ele;
 		if (perdeItem = false){//verifica se ele acabou de perder o item 
-			if(honestidade){//verifica se é honesto
-				ask one_of (reachable_item){//escolhe o item q achou
-					myself.itensAlheios<- self;//add item achado a lista de itensalheio q a pessoa possui;
-					do die;//'mata' o item na forma de dizer q a pessoa o pegou;
-				}
+			ask one_of (reachable_item){//escolhe o item q achou
+				myself.itensAlheios<- self;//add item achado a lista de itensalheio q a pessoa possui;
+				do die;//'mata' o item na forma de dizer q a pessoa o pegou;
+			}
+			if(honestidade){//verifica se é honesto				
 				ask departamento  at_distance (distParaInterceptar){//procura o departamento mais proximo;
 					myself.target <- self;
 				}
@@ -134,10 +134,7 @@ species pessoa skills: [moving]{
 				}
 			}
 			else{//se n for honesto
-				ask one_of (reachable_item){//escolhe o item q achou
-					myself.itensAlheios<- self;//add item achado a lista de itensalheio q a pessoa possui;
-					do die;//'mata' o item na forma de dizer q a pessoa o pegou;
-				}
+				ladrao <- true;
 			}
 		}else if (perdeItem){//a pessao q acabou de perder o item agora pode "procurar" e pegar o item perdido;
 				perdeItem <- false;
@@ -156,7 +153,8 @@ species pessoa skills: [moving]{
 	//Legenda de cores: 
 	//Azul - Possui o item
 	//Verde - Perdeu o item
-	//Amarelo - Percebeu que perdeu o item		
+	//Amarelo - Percebeu que perdeu o item	
+	//Vermelho - Roubou algum item	
 	aspect base {
 		if (possuiItem){
 			cor <- #blue;
@@ -167,6 +165,9 @@ species pessoa skills: [moving]{
 		else {
 			cor <- #green;
 		}
+		if (ladrao){
+			cor <- #red;
+		}  
 		draw circle(size) color:cor;		
 	}
 } 
