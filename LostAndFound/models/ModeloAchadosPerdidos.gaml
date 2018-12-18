@@ -1,4 +1,4 @@
- /***
+/***
 * Name: NewModel
 * Author: Matheus
 * Description: 
@@ -15,13 +15,33 @@ global {
 	int nb_qtdItensDevolvidos <- 0;
 	int nb_pessoas_com_itens_perdidos <- 0;
 	int nb_pessoas_que_perceberam_que_perderam <- 0;
+	int nb_cogidoItem <- 0;
 	init {
 		create pessoa number: nb_pessoa_init ;
 		create departamento number: nb_departamento ;
 	}
 }
 
-species pessoa {
+species departamento{
+	float size <- 5.0 ;
+	rgb color <- #purple;
+	metro meuEspaco <- one_of (metro);//coloca o departamento dentro do metro;
+	int qtdItensRecebidos;
+	int qtdItensDevolvidos;
+	point target <- meuEspaco.location; 
+
+	
+	init{
+		location <- meuEspaco.location;
+		
+	}
+	
+	aspect base{
+		draw cube(size) color: color;
+	}
+	
+} 
+species pessoa skills: [moving]{
 	float size <- 1.0 ;
 	rgb cor <- #blue;
 	bool possuiItem <- true;
@@ -30,40 +50,53 @@ species pessoa {
 	bool itemAlheio <- false ;
 	bool ladrao <- false;
 	bool foiEmbora <- false;
-	int ciclos <- 0;		
-	metro meuEspaco <- one_of (metro) ;
+	bool pedirAjuda <- false;
+	int ciclos <- 0;
+	int numItem <- 0;//numero do item q o usuario perdeu
+	departamento depTarget <-nil;
+	point target <- nil;	
 	list<item> reachable_item update: item inside (meuEspaco);//cria uma lista com os item proximos de pessoas;
+	list<item> itensAlheios;
+	
+	metro meuEspaco <- one_of (metro) ;
 	
 	init {
 		location <- meuEspaco.location;
 	}
 	
-	reflex movimentacaoBasica { 
+	reflex movimentacaoBasica when:target = nil{ 
 		//Movimenta duas casa a cada ciclo
 		meuEspaco <- one_of (meuEspaco.vizinhos) ;
 		location <- meuEspaco.location ;
 		//Conta os ciclos
 		ciclos <- ciclos + 1;
 		//Se pessoa não possui o item e ainda não percebeu perda
-		if not(possuiItem) and not(percebeuPerda){
+	
+	}
+	reflex perceberPerda when: possuiItem = false  and  percebeuPerda = false{
 		//1% de chance de perceber
 			percebeuPerda <- flip (0.01);
 			if percebeuPerda {
+				pedirAjuda <- true;
+				 target <- depTarget.target; 
 				nb_pessoas_que_perceberam_que_perderam <- nb_pessoas_que_perceberam_que_perderam + 1;
 			}		
-		}
+		
 	}
-	
 	//Pode perder o item somente quando possuir	
-	reflex perde when: possuiItem{
+	reflex perde when: possuiItem {
 		//1% de chance de perder o item
 		perdeItem <- flip (0.01);
 		//Se perder o item, cria uma novo no ambiente
 		if (perdeItem){			
 			possuiItem <-false;
+			nb_cogidoItem <- nb_cogidoItem + 1;//atualiza a varialvel global
+			numItem <- nb_cogidoItem;//atualiza o item q o usuario perdeu
 			create item{//cria o item quando a pessoa perde o msm;
 				meuEspaco <- myself.meuEspaco;//define o local o item será "perdido"/"deixado";
 				location <- meuEspaco.location;	//passa os parametros da localização;
+				codigo <- nb_cogidoItem;//atualizad codigo do item;
+				
 			}
 			//Acrescenta o número de itens na variavel global
 			nb_itens_perdidos <- nb_itens_perdidos + 1;	
@@ -71,8 +104,13 @@ species pessoa {
 		}	
 	}
 	
-	reflex procuraAjuda when: percebeuPerda{
+	reflex procuraAjuda when: pedirAjuda {
 		//Vai até uma estação de comunicação
+		do goto target: target;
+		if (target = location){
+			color <- #grey;
+			pedirAjuda <-false;
+		}
 	}
 	//Após 100 ciclos mínimos a pessoa pode ir embora
 	reflex irEmbora when: ciclos > 100{
@@ -117,6 +155,7 @@ species pessoa {
 species item {
 	float size <- 0.8 ;
 	rgb color <- #black;
+	int codigo <- 0;
 	metro meuEspaco <- one_of (metro) ;//coloca o objeto dentro do metro;
 	
 	init {
@@ -127,22 +166,7 @@ species item {
 		draw square(size) color: color ;
 	}
 }
-species departamento{
-	float size <- 5.0 ;
-	rgb color <- #purple;
-	metro meuEspaco <- one_of (metro);//coloca o departamento dentro do metro;
-	int qtdItensRecebidos;
-	int qtdItensDevolvidos; 
-	
-	init{
-		location <- meuEspaco.location;	
-	}
-	
-	aspect base{
-		draw cube(size) color: color;
-	}
-	
-} 
+
 
 //Ambiente do metrô criado
 grid metro width: 50 height: 50 neighbors: 4 {
@@ -178,4 +202,3 @@ experiment AchadosPerdidos type: gui {
 		monitor "Nº de itens que o departamento recebeu" value: nb_qtdItensRecebidos;
 	}
 }
-
