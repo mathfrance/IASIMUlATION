@@ -8,6 +8,7 @@
 model NewModel
 
 global {
+	float distParaInterceptar <- 2500.0;//distancia maxima de pessoa até o departamento
 	int nb_pessoa_init <- 50;
 	int nb_departamento <- 1;
 	int nb_itens_perdidos <- 0;
@@ -16,6 +17,7 @@ global {
 	int nb_pessoas_com_itens_perdidos <- 0;
 	int nb_pessoas_que_perceberam_que_perderam <- 0;
 	int nb_cogidoItem <- 0;
+	
 	init {
 		create pessoa number: nb_pessoa_init ;
 		create departamento number: nb_departamento ;
@@ -29,12 +31,7 @@ species departamento{
 	int qtdItensRecebidos;
 	int qtdItensDevolvidos;
 	point target <- meuEspaco.location; 
-
-	
-	init{
-		location <- meuEspaco.location;
-		
-	}
+	list<item> itensDevolvidos;
 	
 	aspect base{
 		draw cube(size) color: color;
@@ -51,12 +48,14 @@ species pessoa skills: [moving]{
 	bool ladrao <- false;
 	bool foiEmbora <- false;
 	bool pedirAjuda <- false;
+	bool honestidade <- flip(0.5);// 50¨% de chance de ser true(honesta) e 50% de ser false (desonesta)
 	int ciclos <- 0;
-	int numItem <- 0;//numero do item q o usuario perdeu
-	departamento depTarget <-nil;
-	point target <- nil;	
+	int numItem <- 0;//numero do item q o usuario perdeu;
+	departamento depTarget;//departamento mais proximo;	
+	point target <- nil;
 	list<item> reachable_item update: item inside (meuEspaco);//cria uma lista com os item proximos de pessoas;
 	list<item> itensAlheios;
+
 	
 	metro meuEspaco <- one_of (metro) ;
 	
@@ -64,25 +63,35 @@ species pessoa skills: [moving]{
 		location <- meuEspaco.location;
 	}
 	
-	reflex movimentacaoBasica when:target = nil{ 
+	reflex procuraAjuda when: pedirAjuda{//codigo ta de forma correta mais n ta funfando
+		//Vai até uma estação de comunicação
+		ask departamento  at_distance (distParaInterceptar){//procura o departamento mais proximo;
+					myself.target <- self;
+		}
+		do goto target:target ;
+		if(target = location){// tem arrumar;
+			target <- nil;
+			pedirAjuda <-false;
+			percebeuPerda<-false;	
+			do wander;	
+		}
+	}
+	reflex movimentacaoBasica when: !pedirAjuda{ 
 		//Movimenta duas casa a cada ciclo
 		meuEspaco <- one_of (meuEspaco.vizinhos) ;
 		location <- meuEspaco.location ;
 		//Conta os ciclos
 		ciclos <- ciclos + 1;
 		//Se pessoa não possui o item e ainda não percebeu perda
-	
-	}
-	reflex perceberPerda when: possuiItem = false  and  percebeuPerda = false{
-		//1% de chance de perceber
+		if(possuiItem = false  and  percebeuPerda = false){
+		//1% de chance de perceber	
 			percebeuPerda <- flip (0.01);
-			if percebeuPerda {
-				pedirAjuda <- true;
-				 target <- depTarget.target; 
-				nb_pessoas_que_perceberam_que_perderam <- nb_pessoas_que_perceberam_que_perderam + 1;
-			}		
-		
-	}
+				if percebeuPerda {
+					pedirAjuda <- true; 
+					nb_pessoas_que_perceberam_que_perderam <- nb_pessoas_que_perceberam_que_perderam + 1;
+				}	
+		}
+	}	
 	//Pode perder o item somente quando possuir	
 	reflex perde when: possuiItem {
 		//1% de chance de perder o item
@@ -104,13 +113,35 @@ species pessoa skills: [moving]{
 		}	
 	}
 	
-	reflex procuraAjuda when: pedirAjuda {
-		//Vai até uma estação de comunicação
-		do goto target: target;
-		if (target = location){
-			color <- #grey;
-			pedirAjuda <-false;
-		}
+
+	reflex pegarItem when: !empty(reachable_item){// verifica se tem o item na msm localização q ele;
+		if (perdeItem = false){//verifica se ele acabou de perder o item 
+			if(honestidade){//verifica se é honesto
+				ask one_of (reachable_item){//escolhe o item q achou
+					myself.itensAlheios<- self;//add item achado a lista de itensalheio q a pessoa possui;
+					do die;//'mata' o item na forma de dizer q a pessoa o pegou;
+				}
+				ask departamento  at_distance (distParaInterceptar){//procura o departamento mais proximo;
+					myself.target <- self;
+				}
+				do goto target: target;
+				if(location = target){//verifica se já chegou						
+					ask departamento {//transfere o item para o departamento
+						self.itensDevolvidos <-myself.itemAlheio;
+					}
+					itemAlheio<-nil;//o item foi devolvido ao deparmento portanto n pertence mais a pessoa
+					target <- nil;//zera o target	
+				}
+			}
+			else{//se n for honesto
+				ask one_of (reachable_item){//escolhe o item q achou
+					myself.itensAlheios<- self;//add item achado a lista de itensalheio q a pessoa possui;
+					do die;//'mata' o item na forma de dizer q a pessoa o pegou;
+				}
+			}
+		}else if (perdeItem){//a pessao q acabou de perder o item agora pode "procurar" e pegar o item perdido;
+				perdeItem <- false;
+			}	
 	}
 	//Após 100 ciclos mínimos a pessoa pode ir embora
 	reflex irEmbora when: ciclos > 100{
@@ -120,19 +151,7 @@ species pessoa skills: [moving]{
 			do die;	
 		}			
 	}
-	reflex pegarItem when: !empty(reachable_item){// verifica se tem o item na msm localização q ele;
-		if (perdeItem = false){//verifica se ele acabou de perder o item 
-			ask one_of (reachable_item){//escolhe o item q achou
-				do die;//'mata' o item na forma de dizer q a pessoa o pegou;
-			}
-			itemAlheio <- true;//a pessoa pegou um item q n é dela;
-		}
-		else if (perdeItem){//a pessao q acabou de perder o item agora pode "procurar" e pegar o item perdido;
-				perdeItem <- false;
-			}
-		
-		
-	}
+	
 	
 	//Legenda de cores: 
 	//Azul - Possui o item
