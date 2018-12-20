@@ -9,7 +9,7 @@ model NewModel
 
 global {
 	float distParaInterceptar <- 2500.0;//distancia maxima de pessoa até o departamento
-	int nb_pessoa_init <- 2;
+	int nb_pessoa_init <- 10;
 	int nb_departamento <- 1;
 	int nb_itens_perdidos <- 0;
 	int nb_qtdItensRecebidos <- 0;
@@ -41,6 +41,7 @@ species pessoa skills: [moving]{
 	float size <- 1.0 ;
 	rgb cor <- #blue;
 	bool possuiItem <- true;
+	bool CorTeste <- false;
 	bool perdeItem <- false;
 	bool percebeuPerda <- false;
 	bool itemAlheio <- false ;
@@ -106,33 +107,32 @@ species pessoa skills: [moving]{
 				perdeItem <- false;
 			}	
 	}
-	reflex procuraAjuda when: pedirAjuda{//codigo ta de forma correta mais n ta funfando
+	
+	reflex procuraAjuda when: pedirAjuda{
 		//Vai até uma estação de comunicação
 		ask departamento {//procura o departamento mais proximo;
 					myself.target <- self;
 				}
 		do goto target:target ;
-		if(target = location){// tem arrumar;
+		if(target = location){// tem arrumar;			
 			ask departamento{// para acessar a lista do departamento
-				if (length(itensDep) = 0){
-					myself.target <- nil;
-					myself.pedirAjuda <-false;
-					myself.percebeuPerda<-false;		
-				}else{
+				if not(length(itensDep) = 0){
 					loop i from: 0 to:length(itensDep){//pecorre a lista itensDep procurando o item perdido;
 						if (itensDep[i].codigo = myself.numItem){//verifica se o item q a pessoa perdeu está no departamento
 							remove itensDep[i] from:itensDep;//caso a pessoa encontre o item o msm será removido do itensDep
 							myself.possuiItem <- true;//a pessoa volta a possui o item
 							nb_qtdItensDevolvidos <- nb_qtdItensDevolvidos + 1;//add a global de itens devolvidos
 						}
-					}
-					myself.target <- nil;
-					myself.pedirAjuda <-false;
-					myself.percebeuPerda<-false;	
-					}
+					}						
+				}
+				myself.CorTeste <- true;
+				myself.target <- nil;
+				myself.pedirAjuda <-false;
+				myself.percebeuPerda<-false;
 			}
 		}		
 	}
+	
 	reflex movimentacaoBasica when: target = nil{ 
 		//Movimenta duas casa a cada ciclo
 		meuEspaco <- one_of (meuEspaco.vizinhos) ;
@@ -149,6 +149,7 @@ species pessoa skills: [moving]{
 				}	
 		}
 	}	
+	
 	//Pode perder o item somente quando possuir	
 	reflex perde when: possuiItem {
 		//1% de chance de perder o item
@@ -168,8 +169,9 @@ species pessoa skills: [moving]{
 			nb_pessoas_com_itens_perdidos <- nb_pessoas_com_itens_perdidos + 1;
 		}	
 	}	
+	
 	//Após 100 ciclos mínimos a pessoa pode ir embora
-	reflex irEmbora when: ciclos > 100{
+	reflex irEmbora when: ciclos > 100 and not pedirAjuda{
 		foiEmbora <- flip (0.003);
 		if foiEmbora{
 			nb_pessoa_init <- nb_pessoa_init - 1;
@@ -182,6 +184,7 @@ species pessoa skills: [moving]{
 	//Azul - Possui o item
 	//Verde - Perdeu o item
 	//Amarelo - Percebeu que perdeu o item	
+	//Laranja - Recupera o proprio item que perde
 	//Vermelho - Roubou algum item	
 	aspect base {
 		if (possuiItem){
@@ -193,11 +196,14 @@ species pessoa skills: [moving]{
 		else{
 			cor <- #green;
 		}
-		if (ladrao){
-			cor <- #red;
-		}
 		if(achouItem and possuiItem){
 			cor <- #orange;	
+		}
+		if (ladrao){
+			cor <- #red;
+		}		
+		if (CorTeste) {
+			cor <- #pink;
 		}
 		draw circle(size) color:cor;		
 	}
@@ -218,14 +224,13 @@ species item {
 	}
 }
 
-
 //Ambiente do metrô criado
 grid metro width: 50 height: 50 neighbors: 4 {
       list<metro> vizinhos  <- (self neighbors_at 2);
       bool novoUsuario <- false;
       
       reflex recebePessoas{
-      	novoUsuario <- flip (0.00005);
+      	//novoUsuario <- flip (0.00005); //Cria novas pessoas aleatoriamente
       	if novoUsuario {
       		create pessoa;
       		nb_pessoa_init <- nb_pessoa_init + 1;
