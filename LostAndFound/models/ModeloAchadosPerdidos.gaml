@@ -14,6 +14,7 @@ global {
 	int nb_itens_perdidos <- 0;
 	int nb_qtdItensRecebidos <- 0;
 	int nb_qtdItensDevolvidos <- 0;
+	int nb_qtdItensRoubados <- 0;
 	int nb_pessoas_com_itens_perdidos <- 0;
 	int nb_pessoas_que_perceberam_que_perderam <- 0;
 	int nb_cogidoItem <- 0;
@@ -101,6 +102,7 @@ species pessoa skills: [moving]{
 						
 			}else{//se n for honesto
 				ladrao <- true;
+				nb_qtdItensRoubados <- nb_qtdItensRoubados + 1;
 				}
 		}
 		else if (perdeItem){//a pessao q acabou de perder o item agora pode "procurar" e pegar o item perdido;
@@ -122,10 +124,10 @@ species pessoa skills: [moving]{
 							remove itensDep[i] from:itensDep;//caso a pessoa encontre o item o msm será removido do itensDep
 							myself.possuiItem <- true;//a pessoa volta a possui o item
 							nb_qtdItensDevolvidos <- nb_qtdItensDevolvidos + 1;//add a global de itens devolvidos
+							myself.CorTeste <- true; // VAI FICAR ROSA SE ENTROU NESSE LOOP*********************************
 						}
 					}						
 				}
-				myself.CorTeste <- true;
 				myself.target <- nil;
 				myself.pedirAjuda <-false;
 				myself.percebeuPerda<-false;
@@ -255,6 +257,7 @@ experiment AchadosPerdidos type: gui {
 		monitor "Nº de pessoas que perderam itens" value: nb_pessoas_com_itens_perdidos;
 		monitor "Nº de pessoas que percebeu perda" value: nb_pessoas_que_perceberam_que_perderam;
 		monitor "Nº de pessoas que recuperaram itens" value: nb_qtdItensDevolvidos;
-		monitor "Nº de itens que o departamento recebeu" value: nb_qtdItensRecebidos;
+		monitor "Nº de itens que o departamento recebeu" value: nb_qtdItensRecebidos; 
+		monitor "Nº de itens roubados" value: nb_qtdItensRoubados;
 	}
 }
