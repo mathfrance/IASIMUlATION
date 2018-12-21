@@ -17,7 +17,7 @@ global {
 	int nb_qtdItensDevolvidos <- 0;
 	int nb_qtdItensRoubados <- 0;
 	int nb_pessoas_com_itens_perdidos <- 0;
-	int nb_pessoas_que_perceberam_que_perderam <- 0;
+	int nb_vezes_dep_foi_procurado <- 0;
 	int nb_cogidoItem <- 0;
 	
 	init {
@@ -50,7 +50,7 @@ species pessoa skills: [moving]{
 	bool foiEmbora <- false;
 	bool pedirAjuda <- false;//verificar se a pessoa precisa de ajuda
 	bool achouItem <- false;//verifica se a pessoa achou algum item
-	bool honestidade <- true;// 50¨% de chance de ser true(honesta) e 50% de ser false (desonesta)
+	bool honestidade <- flip (0.5);// 50¨% de chance de ser true(honesta) e 50% de ser false (desonesta)
 	int ciclos <- 0;
 	departamento depTarget;//departamento mais proximo;	
 	point target <- nil;// point pra localização
@@ -75,6 +75,8 @@ species pessoa skills: [moving]{
 				//retira os item que já era da pessoa da lista de itens alheios,
 				//considera a possibilidade de existir mais de uma instacia do msm item.
 				remove all: itemProp from: itensAlheios;
+				nb_qtdItensDevolvidos <- nb_qtdItensDevolvidos + 1;//add a global de itens devolvidos
+				target <- nil;//zera o target, caso ela já estivesse indo ao atendimento 
 				
 				
 			}else if(honestidade){//verifica se é honesto				
@@ -94,12 +96,9 @@ species pessoa skills: [moving]{
 								nb_qtdItensRecebidos <- nb_qtdItensRecebidos + 1;
 								myself.itemAlheio <- false;
 								myself.itensAlheios<-nil;//zera a lista de itens alhies daquela pessao;
-								myself.target <- nil;//zera o target
-								
+								myself.target <- nil;//zera o target								
 							}	
-				}
-					
-						
+				}		
 			}else{//se n for honesto
 				ladrao <- true;
 				nb_qtdItensRoubados <- nb_qtdItensRoubados + 1;
@@ -121,9 +120,7 @@ species pessoa skills: [moving]{
 						if (self.itensDep contains (myself.itemProp)){//verifica se o item q a pessoa perdeu está no departamento
 							remove all: myself.itemProp from:self.itensDep;//caso a pessoa encontre o item o msm será removido do itensDep
 							myself.possuiItem <- true;//a pessoa volta a possui o item
-							nb_qtdItensDevolvidos <- nb_qtdItensDevolvidos + 1;//add a global de itens devolvidos
-							myself.CorTeste <- true; // VAI FICAR ROSA SE ENTROU NESSE LOOP*********************************
-											
+							nb_qtdItensDevolvidos <- nb_qtdItensDevolvidos + 1;//add a global de itens devolvidos											
 					}
 				myself.target <- nil;
 				myself.pedirAjuda <-false;
@@ -132,7 +129,7 @@ species pessoa skills: [moving]{
 		}		
 	}
 	//OK!!!!
-	reflex movimentacaoBasica when: target = nil{ 
+	reflex movimentacaoBasica when: target = nil and not pedirAjuda{ 
 		//Movimenta duas casa a cada ciclo
 		meuEspaco <- one_of (meuEspaco.vizinhos) ;
 		location <- meuEspaco.location ;
@@ -144,7 +141,7 @@ species pessoa skills: [moving]{
 			percebeuPerda <- flip (0.01);
 				if percebeuPerda {
 					pedirAjuda <- true; 
-					nb_pessoas_que_perceberam_que_perderam <- nb_pessoas_que_perceberam_que_perderam + 1;
+					nb_vezes_dep_foi_procurado <- nb_vezes_dep_foi_procurado + 1;
 				}	
 		}
 	}	
@@ -200,9 +197,6 @@ species pessoa skills: [moving]{
 		}
 		if (ladrao){
 			cor <- #red;
-		}		
-		if (CorTeste) {
-			cor <- #pink;
 		}
 		draw circle(size) color:cor;		
 	}
@@ -242,6 +236,7 @@ experiment AchadosPerdidos type: gui {
 	parameter "Número de itens perdidos: " var: nb_itens_perdidos category: "Itens" ;
 	parameter "Número de itens recebido: " var: nb_qtdItensOnDep category: "departamento";
 	parameter "Número de itens devolvidos: " var: nb_qtdItensDevolvidos category: "departamento";
+	parameter "Nº de vezes que o depart. foi procurado: " var: nb_vezes_dep_foi_procurado category: "departamento";
 	output {
 		display main_display {
 			grid metro lines: #black ;
@@ -249,13 +244,13 @@ experiment AchadosPerdidos type: gui {
 			species item aspect: base ;
 			species departamento aspect: base ;
 		}
-		monitor "Número de pessoas no metrô" value: nb_pessoa_init;
-		monitor "Número de itens perdidos" value: nb_itens_perdidos;
-		monitor "Nº de pessoas que perderam itens" value: nb_pessoas_com_itens_perdidos;
-		monitor "Nº de pessoas que percebeu perda" value: nb_pessoas_que_perceberam_que_perderam;
+		monitor "Nº de pessoas no metrô" value: nb_pessoa_init;
+		monitor "Nº de itens perdidos" value: nb_itens_perdidos;
+		monitor "Nº de pessoas que perderam itens" value: nb_pessoas_com_itens_perdidos;		
 		monitor "Nº de pessoas que recuperaram itens" value: nb_qtdItensDevolvidos;
+		monitor "Nº de vezes que o depart. foi procurado" value: nb_vezes_dep_foi_procurado; 
 		monitor "Nº de itens que o departamento possui" value: nb_qtdItensOnDep;
-		monitor "Nº de itens que o departamento recebeu" value: nb_qtdItensRecebidos;  
+		monitor "Nº de itens que o departamento recebeu" value: nb_qtdItensRecebidos;		 
 		monitor "Nº de itens roubados" value: nb_qtdItensRoubados;
 	}
 }
