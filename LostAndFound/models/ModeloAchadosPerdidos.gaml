@@ -8,10 +8,11 @@
 model NewModel
 
 global {
-	float distParaInterceptar <- 2500.0;//distancia maxima de pessoa até o departamento
+	
 	int nb_pessoa_init <- 10;
 	int nb_departamento <- 1;
 	int nb_itens_perdidos <- 0;
+	int nb_qtdItensOnDep <- 0;
 	int nb_qtdItensRecebidos <- 0;
 	int nb_qtdItensDevolvidos <- 0;
 	int nb_qtdItensRoubados <- 0;
@@ -29,8 +30,6 @@ species departamento{
 	float size <- 5.0 ;
 	rgb color <- #purple;
 	metro meuEspaco <- one_of (metro);//coloca o departamento dentro do metro;
-	int qtdItensRecebidos;
-	int qtdItensDevolvidos;
 	list<item> itensDep;
 
 	aspect base{
@@ -45,60 +44,61 @@ species pessoa skills: [moving]{
 	bool CorTeste <- false;
 	bool perdeItem <- false;
 	bool percebeuPerda <- false;
-	bool itemAlheio <- false ;
-	bool ladrao <- nil;
+	item itemProp;//item q a pessao possui
+	bool itemAlheio <- false;//mostra se ela possui um item alhieo ou n 
+	bool ladrao <- nil;//mostra se ela roubou algum item
 	bool foiEmbora <- false;
-	bool pedirAjuda <- false;
-	bool achouItem <- false;
-	int i;
-	bool honestidade <- flip(0.5);// 50¨% de chance de ser true(honesta) e 50% de ser false (desonesta)
+	bool pedirAjuda <- false;//verificar se a pessoa precisa de ajuda
+	bool achouItem <- false;//verifica se a pessoa achou algum item
+	bool honestidade <- true;// 50¨% de chance de ser true(honesta) e 50% de ser false (desonesta)
 	int ciclos <- 0;
-	int numItem <- 0;//numero do item q o usuario perdeu;
 	departamento depTarget;//departamento mais proximo;	
-	point target <- nil;
+	point target <- nil;// point pra localização
 	list<item> reachable_item update: item inside (meuEspaco);//cria uma lista com os item proximos de pessoas;
 	list<item> itensAlheios;//lista de itens alheios
-	item itemAux;//variavel temporaria de item
-
+	
 	
 	metro meuEspaco <- one_of (metro) ;
 	
-	init {
-		location <- meuEspaco.location;
-	}
-	reflex pegarItem when: !empty(reachable_item){// verifica se tem o item na msm localização q ele;
+	//OK!!!
+	reflex pegarItem when: !empty(reachable_item) or itemAlheio{// verifica se tem o item na msm localização q ele;
 		if (perdeItem = false){//verifica se ele acabou de perder o item 	
 			ask one_of (reachable_item){//escolhe o item q achou
-				if(myself.numItem = self.codigo){//verifica se o codigo do item q a pessoa perdeu é o msm do item q acabou de achar
-					myself.itemAux <- self;
-				}		
 				//add item achado a lista de itensalheio q a pessoa possui;
 				add self to:myself.itensAlheios;
 				do die;//'mata' o item na forma de dizer q a pessoa o pegou;
 			}
 			
-			if(itensAlheios contains (itemAux)){//verifica se na lista de itens alheios daquela pessoa estar o item que ela perdeu
+			 if(itensAlheios contains (itemProp)){//verifica se na lista de itens alheios daquela pessoa estar o item que ela perdeu
 				achouItem <- true;
 				possuiItem <- true;
-				/*retira os item que já era da pessoa da lista de itens alheios,
-				considera a possibilidade de existir mais de uma instacia do msm item.*/
-				remove all: itemAux from: itensAlheios;
-				itemAux <- nil;// limpa a variavel temporaria.
+				//retira os item que já era da pessoa da lista de itens alheios,
+				//considera a possibilidade de existir mais de uma instacia do msm item.
+				remove all: itemProp from: itensAlheios;
+				
 				
 			}else if(honestidade){//verifica se é honesto				
+				itemAlheio <- true;//verifica se a pessoa tem item alheio
+				
 				ask departamento {//procura o departamento mais proximo;
 					myself.target <- self;
 				}
+					
 				do goto target: target;
-				if(target = self.location){						
+				if(target = location){	
 							ask departamento{//transfere o item para o departamento
-								self.itensDep <<+ myself.itensAlheios;
-								nb_qtdItensRecebidos <- nb_qtdItensRecebidos + length(myself.itensAlheios);
-							}
-							
-							add all: nil to:itensAlheios;//zera a lista de itens alhies daquela pessao;
-							target <- nil;//zera o target
-							}
+								loop i from: 0 to:length(myself.itensAlheios) -1{//transfere itens q a pessoa achou para item do departamento
+									add myself.itensAlheios[i] to:self.itensDep;
+								}				
+								nb_qtdItensOnDep <- length(self.itensDep);//atualiza o contador quantos itens o departamento possui
+								nb_qtdItensRecebidos <- nb_qtdItensRecebidos + 1;
+								myself.itemAlheio <- false;
+								myself.itensAlheios<-nil;//zera a lista de itens alhies daquela pessao;
+								myself.target <- nil;//zera o target
+								
+							}	
+				}
+					
 						
 			}else{//se n for honesto
 				ladrao <- true;
@@ -106,35 +106,32 @@ species pessoa skills: [moving]{
 				}
 		}
 		else if (perdeItem){//a pessao q acabou de perder o item agora pode "procurar" e pegar o item perdido;
-				perdeItem <- false;
+			perdeItem <- false;
 			}	
 	}
-	
+	//OK!!
 	reflex procuraAjuda when: pedirAjuda{
 		//Vai até uma estação de comunicação
 		ask departamento {//procura o departamento mais proximo;
 					myself.target <- self;
 				}
 		do goto target:target ;
-		if(target = location){// tem arrumar;			
-			ask departamento{// para acessar a lista do departamento
-				if not(length(itensDep) = 0){
-					loop i from: 0 to:length(itensDep){//pecorre a lista itensDep procurando o item perdido;
-						if (itensDep[i].codigo = myself.numItem){//verifica se o item q a pessoa perdeu está no departamento
-							remove itensDep[i] from:itensDep;//caso a pessoa encontre o item o msm será removido do itensDep
+		if(target = location){			
+			ask departamento{// para acessar a lista do departamento						
+						if (self.itensDep contains (myself.itemProp)){//verifica se o item q a pessoa perdeu está no departamento
+							remove all: myself.itemProp from:self.itensDep;//caso a pessoa encontre o item o msm será removido do itensDep
 							myself.possuiItem <- true;//a pessoa volta a possui o item
 							nb_qtdItensDevolvidos <- nb_qtdItensDevolvidos + 1;//add a global de itens devolvidos
 							myself.CorTeste <- true; // VAI FICAR ROSA SE ENTROU NESSE LOOP*********************************
-						}
-					}						
-				}
+											
+					}
 				myself.target <- nil;
 				myself.pedirAjuda <-false;
 				myself.percebeuPerda<-false;
 			}
 		}		
 	}
-	
+	//OK!!!!
 	reflex movimentacaoBasica when: target = nil{ 
 		//Movimenta duas casa a cada ciclo
 		meuEspaco <- one_of (meuEspaco.vizinhos) ;
@@ -151,7 +148,7 @@ species pessoa skills: [moving]{
 				}	
 		}
 	}	
-	
+	//OK!!!!
 	//Pode perder o item somente quando possuir	
 	reflex perde when: possuiItem {
 		//1% de chance de perder o item
@@ -160,18 +157,18 @@ species pessoa skills: [moving]{
 		if (perdeItem){			
 			possuiItem <-false;
 			nb_cogidoItem <- nb_cogidoItem + 1;//atualiza a varialvel global
-			numItem <- nb_cogidoItem;//atualiza o item q o usuario perdeu
 			create item{//cria o item quando a pessoa perde o msm;
 				meuEspaco <- myself.meuEspaco;//define o local o item será "perdido"/"deixado";
 				location <- meuEspaco.location;	//passa os parametros da localização;
-				codigo <- nb_cogidoItem;//atualizad codigo do item;	
+				codigo <- nb_cogidoItem;//atualizad codigo do item;
+				myself.itemProp <- self;//item q perdeu mo item da pessoa
 			}
 			//Acrescenta o número de itens na variavel global
 			nb_itens_perdidos <- nb_itens_perdidos + 1;	
 			nb_pessoas_com_itens_perdidos <- nb_pessoas_com_itens_perdidos + 1;
 		}	
 	}	
-	
+	//OK!!!!
 	//Após 100 ciclos mínimos a pessoa pode ir embora
 	reflex irEmbora when: ciclos > 100 and not pedirAjuda{
 		foiEmbora <- flip (0.003);
@@ -243,7 +240,7 @@ grid metro width: 50 height: 50 neighbors: 4 {
 experiment AchadosPerdidos type: gui {
 	parameter "Número de pessoas iniciais: " var: nb_pessoa_init  category: "Pessoa" ;
 	parameter "Número de itens perdidos: " var: nb_itens_perdidos category: "Itens" ;
-	parameter "Número de itens recebido: " var: nb_qtdItensRecebidos category: "departamento";
+	parameter "Número de itens recebido: " var: nb_qtdItensOnDep category: "departamento";
 	parameter "Número de itens devolvidos: " var: nb_qtdItensDevolvidos category: "departamento";
 	output {
 		display main_display {
@@ -257,7 +254,8 @@ experiment AchadosPerdidos type: gui {
 		monitor "Nº de pessoas que perderam itens" value: nb_pessoas_com_itens_perdidos;
 		monitor "Nº de pessoas que percebeu perda" value: nb_pessoas_que_perceberam_que_perderam;
 		monitor "Nº de pessoas que recuperaram itens" value: nb_qtdItensDevolvidos;
-		monitor "Nº de itens que o departamento recebeu" value: nb_qtdItensRecebidos; 
+		monitor "Nº de itens que o departamento possui" value: nb_qtdItensOnDep;
+		monitor "Nº de itens que o departamento recebeu" value: nb_qtdItensRecebidos;  
 		monitor "Nº de itens roubados" value: nb_qtdItensRoubados;
 	}
 }
