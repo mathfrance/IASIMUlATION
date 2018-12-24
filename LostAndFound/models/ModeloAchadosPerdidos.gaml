@@ -9,7 +9,7 @@ model NewModel
 
 global {
 	
-	int nb_pessoa_init <- 10;
+	int nb_pessoa_init <- 100;
 	int nb_departamento <- 1;
 	int nb_itens_perdidos <- 0;
 	int nb_qtdItensOnDep <- 0;
@@ -130,7 +130,7 @@ species pessoa skills: [moving]{
 	}
 	//OK!!!!
 	reflex movimentacaoBasica when: target = nil and not pedirAjuda{ 
-		//Movimenta duas casa a cada ciclo
+		//	Movimenta duas casa a cada ciclo
 		meuEspaco <- one_of (meuEspaco.vizinhos) ;
 		location <- meuEspaco.location ;
 		//Conta os ciclos
@@ -138,7 +138,7 @@ species pessoa skills: [moving]{
 		//Se pessoa não possui o item e ainda não percebeu perda
 		if(possuiItem = false  and  percebeuPerda = false){
 		//1% de chance de perceber	
-			percebeuPerda <- flip (0.01);
+			percebeuPerda <- flip (0.003);
 				if percebeuPerda {
 					pedirAjuda <- true; 
 					nb_vezes_dep_foi_procurado <- nb_vezes_dep_foi_procurado + 1;
@@ -149,7 +149,7 @@ species pessoa skills: [moving]{
 	//Pode perder o item somente quando possuir	
 	reflex perde when: possuiItem {
 		//1% de chance de perder o item
-		perdeItem <- flip (0.01);
+		perdeItem <- flip (0.003);
 		//Se perder o item, cria uma novo no ambiente
 		if (perdeItem){			
 			possuiItem <-false;
